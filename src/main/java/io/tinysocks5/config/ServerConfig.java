@@ -7,6 +7,14 @@ public class ServerConfig {
     private String password;
     private boolean isAuth;
 
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
     public void setPort(String port) {
         this.port = port;
     }

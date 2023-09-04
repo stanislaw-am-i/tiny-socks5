@@ -9,10 +9,9 @@ import java.io.IOException;
 
 public class Main {
 
-    private static ServerConfig configuration = new ServerConfig();
-    private static Logger logger = LoggerFactory.getLogger(Main.class);
-    private static Options options = new Options();
-    private static CommandLine commandLine;
+    private static final ServerConfig CONFIGURATION = new ServerConfig();
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private static final Options OPTIONS = new Options();
 
     public static void main(String[] args) {
         processedArguments(args);
@@ -25,9 +24,9 @@ public class Main {
     }
 
     private static void launchServer() throws IOException {
-        Socks5Server server = new Socks5Server(configuration.getPort());
-        if (configuration.isAuth()) {
-            //TODO: auth method with username and password
+        Socks5Server server = new Socks5Server(CONFIGURATION.getPort());
+        if (CONFIGURATION.isAuth()) {
+            server.setAuthenticationMethods(CONFIGURATION.getUsername(), CONFIGURATION.getPassword());
         } else {
             server.setAuthenticationMethods();
         }
@@ -36,25 +35,49 @@ public class Main {
     }
 
     private static void processedArguments(String[] args) {
-        options.addOption("h", "help", false, "Print help message"); //TODO help message
-        options.addOption("p", "port", true, "Set the server's port");
+        OPTIONS.addOption("h", "help", false, "Display this help message");
+        OPTIONS.addOption("p", "port", true, "Set the port for the server to listen on");
+        OPTIONS.addOption("a", "auth", true, "Set authentication credentials in the format 'username:password'");
 
+        CommandLine commandLine;
         CommandLineParser parser = new DefaultParser();
 
         try {
-            commandLine = parser.parse(options, args);
+            commandLine = parser.parse(OPTIONS, args);
+
+            if (commandLine.hasOption("h")) {
+                printHelp();
+                System.exit(1);
+            }
 
             if (commandLine.hasOption("p")) {
-                configuration.setPort(commandLine.getOptionValue("p"));
+                CONFIGURATION.setPort(commandLine.getOptionValue("p"));
             }
 
             if (commandLine.hasOption("a")) {
-                //TODO: auth method with username and password
+                String authString = commandLine.getOptionValue("a");
+                parseAuthCredentials(authString);
+                CONFIGURATION.setAuth(true);
             } else {
-                configuration.setAuth(false);
+                CONFIGURATION.setAuth(false);
             }
         } catch (ParseException e) {
-            logger.error("{}\n", "Error parsing command line: " + e.getMessage());
+            LOGGER.error("{}\n", "Error parsing command line: " + e.getMessage());
         }
+    }
+
+    private static void parseAuthCredentials(String authString) {
+        boolean isValid = authString != null && !"".equals(authString) && authString.indexOf(':') != -1;
+        if (isValid) {
+            CONFIGURATION.setUsername(authString.substring(0, authString.indexOf(':')));
+            CONFIGURATION.setPassword(authString.substring(authString.indexOf(':') + 1));
+        } else {
+            LOGGER.error("{}\n", "Error parsing auth credentials");
+        }
+    }
+
+    private static void printHelp() {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp("java -jar tiny-socks5.jar", OPTIONS);
     }
 }

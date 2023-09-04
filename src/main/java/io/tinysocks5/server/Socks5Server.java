@@ -1,9 +1,9 @@
 package io.tinysocks5.server;
 
-import io.tinysocks5.Main;
 import io.tinysocks5.client.Socks5Client;
 import io.tinysocks5.server.auth.AuthMethod;
-import io.tinysocks5.server.auth.NoAuthentication;
+import io.tinysocks5.server.auth.NoAuth;
+import io.tinysocks5.server.auth.UserPasswordAuth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,18 +13,18 @@ import java.net.Socket;
 
 public class Socks5Server {
 
-    private int port;
-    private ServerSocket socket;
+    private final int port;
+    private final ServerSocket socket;
     private AuthMethod authenticationMethod;
-    private static Logger logger = LoggerFactory.getLogger(Socks5Server.class);
+    private final static Logger LOGGER = LoggerFactory.getLogger(Socks5Server.class);
 
     public Socks5Server(String port) throws IOException {
-        this.port = Integer.valueOf(port);
+        this.port = Integer.parseInt(port);
         socket = new ServerSocket(this.port);
     }
 
     public void start() throws IOException {
-        logger.info("Server started on port {}\n", port);
+        LOGGER.info("Server started on port {}\n", port);
 
         while (true) {
             Socket clientSocket = socket.accept();
@@ -33,10 +33,10 @@ public class Socks5Server {
     }
 
     public void setAuthenticationMethods() {
-        authenticationMethod = new NoAuthentication();
+        authenticationMethod = new NoAuth();
     }
 
     public void setAuthenticationMethods(String username, String password) {
-        //TODO: auth method with username and password
+        authenticationMethod = new UserPasswordAuth(username, password);
     }
 }

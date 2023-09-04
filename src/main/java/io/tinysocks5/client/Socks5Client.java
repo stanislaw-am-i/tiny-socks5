@@ -1,24 +1,20 @@
 package io.tinysocks5.client;
 
 import io.tinysocks5.response.ResponseHandler;
-import io.tinysocks5.server.Socks5Server;
 import io.tinysocks5.server.auth.AuthMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
 
 public class Socks5Client extends Thread {
 
     private final Socket clientSocket;
-    private static Logger logger = LoggerFactory.getLogger(Socks5Client.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Socks5Client.class);
     private DataInputStream in;
     private DataOutputStream out;
-    private AuthMethod authenticationMethod;
+    private final AuthMethod authenticationMethod;
 
     public Socks5Client(Socket clientSocket, AuthMethod authenticationMethod) {
         this.clientSocket = clientSocket;
@@ -58,7 +54,10 @@ public class Socks5Client extends Thread {
             closeSockets(clientSocket, targetSocket);
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            LOGGER.error("{}\n", "Error trying to establish connection: " + sw);
         }
     }
 
@@ -71,15 +70,57 @@ public class Socks5Client extends Thread {
         int numMethods = in.readByte();
         byte[] methods = in.readNBytes(numMethods);
 
+        int currentAuthMethod = authenticationMethod.getCode();
         for (byte code : methods) {
-            if (authenticationMethod.getCode() == code) {
-                out.write(new byte[]{5, authenticationMethod.getCode()});
-                return true;
+            if (currentAuthMethod == code) {
+                return doAuth(currentAuthMethod);
             }
         }
 
         out.write(new byte[]{5, (byte) 0xFF}); // No acceptable authentication methods
         return false;
+    }
+
+    private boolean doAuth(int code) throws IOException {
+        switch (code) {
+            case 0 -> {
+                out.write(new byte[]{5, 0});
+                return true;
+            }
+            case 2 -> {
+                out.write(new byte[]{5, 2});
+                return authenticateUsernamePassword();
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
+    private boolean authenticateUsernamePassword() throws IOException {
+        int currentAuthenticationVersion  = in.readByte(); // 0x01 for current version of username/password authentication
+        if (currentAuthenticationVersion != 1) {
+            return false;
+        }
+
+        int usernameLength = in.readByte();
+        byte[] usernameBytes = in.readNBytes(usernameLength);
+        String username = new String(usernameBytes);
+
+        int passwordLength = in.readByte();
+        byte[] passwordBytes = in.readNBytes(passwordLength);
+        String password = new String(passwordBytes);
+
+        // Validate username and password
+        boolean isValid = authenticationMethod.validateUsernamePassword(username, password);
+
+        if (isValid) {
+            out.write(new byte[]{1, 0}); // Authentication successful
+        } else {
+            out.write(new byte[]{1, 1}); // Authentication failed
+        }
+
+        return isValid;
     }
 
     private ResponseHandler readSocks5Request() throws IOException {
@@ -121,7 +162,7 @@ public class Socks5Client extends Thread {
     private void tunnelData(Socket sourceSocket, Socket targetSocket) throws IOException {
         // Transfer data between client and server
         String hostname = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
-        logger.info("{} connected\n", hostname);
+        LOGGER.info("{} connected\n", hostname);
 
         while (true) {
             if (!sourceSocket.isConnected()) {
@@ -142,7 +183,7 @@ public class Socks5Client extends Thread {
 
             if (targetInput.available() != 0) sourceOutput.write(targetInput.readNBytes(targetInput.available()));
         }
-        logger.info("{} disconnected\n", hostname);
+        LOGGER.info("{} disconnected\n", hostname);
     }
 
     private void closeClientSocket() throws IOException {
