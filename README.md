@@ -7,19 +7,12 @@ A simple Socks5 implementation in Java utilizing the standard library.
 * Java installed on your machine. The program was written with JDK 17.
 * A terminal or command prompt for running the program.
 
-### Installation
-
+### Download
+You can download the program directly from the releases page:
 ```
-git clone https://github.com/stanislaw-am-i/tiny-socks5.git
-cd tiny-socks5
-javac -d build src/main/java/Main.java
+wget https://github.com/stanislaw-am-i/tiny-socks5/releases/download/v0.1.0/tiny-socks5.jar
 ```
 
-The compiled .class files will be generated in the build directory. Create the JAR file using the jar command:
-
-```
-jar cvf tiny-socks5.jar -C build .
-```
 ### Command Line Arguments
 The program accepts the following command line arguments:
 
